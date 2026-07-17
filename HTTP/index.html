@@ -1,43 +1,47 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>Minecraft Packet Repository</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Server Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 40px 20px; display: flex; justify-content: center; align-items: center; min-height: 80vh; margin: 0; }
+        .panel { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 550px; width: 100%; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; }
+        h1 { color: #38bdf8; font-size: 24px; margin-bottom: 15px; }
+        p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+        .status-badge { display: inline-block; background: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
+        .stat-box { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: right; }
+        .stat-title { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 18px; color: #f1f5f9; font-weight: bold; margin-top: 5px; }
+        /* هذا العنصر مخفي عن العين ولكنه متاح لـ Node.js لقراءته */
+        #packet-hex { display: none; }
+    </style>
 </head>
 <body>
-    <!-- هذا الجزء يحتوي على بايتات حزمة ماين كرافت جاهزة ومكتوبة داخل الصفحة -->
-    <div id="packet-data">
-        {"version":{"name":"1.8.9","protocol":47},"players":{"max":100,"online":45,"sample":[]},"description":{"text":"§a§lسيرفر جيت هاب الناجح! 🎉"}}
+
+<div class="panel">
+    <div class="status-badge">🟢 خادم البيانات نشط ومستعد</div>
+    <h1>لوحة بيانات السيرفر (GitHub Cloud)</h1>
+    <p>تقوم هذه الصفحة بتخزين حزم بروتوكول ماين كرافت لتغذية المترجم المحلي بالجهاز فور طلبها.</p>
+    
+    <div class="stat-box">
+        <div class="stat-title">اللاعبين الافتراضيين بالسيرفر:</div>
+        <div class="stat-value">45 لاعب متصل حالياً</div>
     </div>
 
-    <script>
-        // دالة تحويل النص إلى بايتات هكس (Hex) لنسهل على Node.js قراءتها
-        function getVarIntBytes(value) {
-            let buffer = [];
-            while (true) {
-                if ((value & ~0x7F) === 0) {
-                    buffer.push(value);
-                    return buffer;
-                }
-                buffer.push((value & 0x7F) | 0x80);
-                value >>>= 7;
-            }
-        }
+    <div class="stat-box">
+        <div class="stat-title">الإصدار المبرمج:</div>
+        <div class="stat-value">Minecraft Java Edition 1.8.9</div>
+    </div>
 
-        // صياغة الحزمة وتخزينها في الصفحة بشكل مخفي ومجهز للـ Node.js
-        const responseJson = document.getElementById('packet-data').innerText.trim();
-        const jsonBytes = Array.from(new TextEncoder().encode(responseJson));
-        const packetId = [0x00];
-        const jsonLengthVarInt = getVarIntBytes(jsonBytes.length);
-        const innerPacket = [].concat(packetId, jsonLengthVarInt, jsonBytes);
-        const totalLengthVarInt = getVarIntBytes(innerPacket.length);
-        const finalPacketBytes = [].concat(totalLengthVarInt, innerPacket);
+    <div class="stat-box" style="border-color: #38bdf8;">
+        <div class="stat-title">حالة فحص البكك (Packet State):</div>
+        <div class="stat-value" style="color: #38bdf8;">تم التوليد بنجاح وجاهز للإرسال</div>
+    </div>
 
-        // تحويل المصفوفة إلى نص هكس لسهولة قراءته من السيرفر
-        const hexString = finalPacketBytes.map(b => b.toString(16).padStart(2, '0')).join('');
-        
-        // مسح المحتوى القديم وكتابة الـ Hex فقط في الصفحة
-        document.body.innerHTML = `<pre id="hex-output">${hexString}</pre>`;
-    </script>
+    <!-- هنا نضع كود الهكس الصافي داخل وسم div مخصص وبدون مسافات -->
+    <div id="packet-hex">1d002f093132372e302e302e3163dd0101004a00487b2276657273696f6e223a7b226e616d65223a22312e382e39222c2270726f746f636f6c223a34377d2c22706c6179657273223a7b226d6178223a3130302c226f6e6c696e65223a34357d2c226465736372697074696f6e223a7b2274657874223a22a7aa7da1f2a7ca7e20736572766572206f6e6c696e652120a7aa7da1f2227d7d</div>
+</div>
+
 </body>
 </html>
