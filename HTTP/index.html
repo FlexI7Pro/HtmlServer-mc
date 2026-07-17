@@ -2,12 +2,16 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>Minecraft Auto Test</title>
+    <title>Minecraft Packet Repository</title>
 </head>
 <body>
+    <!-- هذا الجزء يحتوي على بايتات حزمة ماين كرافت جاهزة ومكتوبة داخل الصفحة -->
+    <div id="packet-data">
+        {"version":{"name":"1.8.9","protocol":47},"players":{"max":100,"online":45,"sample":[]},"description":{"text":"§a§lسيرفر جيت هاب الناجح! 🎉"}}
+    </div>
 
     <script>
-        // دالة تحويل الأرقام لبروتوكول ماين كرافت
+        // دالة تحويل النص إلى بايتات هكس (Hex) لنسهل على Node.js قراءتها
         function getVarIntBytes(value) {
             let buffer = [];
             while (true) {
@@ -20,40 +24,20 @@
             }
         }
 
-        // صياغة حزمة الاستعلام التلقائية (بيانات افتراضية للتجربة)
-        function compileAutoPacket() {
-            const responseJson = {
-                version: { name: "1.8.9", protocol: 47 },
-                players: { max: 100, online: 12, sample: [] },
-                description: { text: "§a§lتست تلقائي ناجح من GitHub Pages! 🎉" }
-            };
+        // صياغة الحزمة وتخزينها في الصفحة بشكل مخفي ومجهز للـ Node.js
+        const responseJson = document.getElementById('packet-data').innerText.trim();
+        const jsonBytes = Array.from(new TextEncoder().encode(responseJson));
+        const packetId = [0x00];
+        const jsonLengthVarInt = getVarIntBytes(jsonBytes.length);
+        const innerPacket = [].concat(packetId, jsonLengthVarInt, jsonBytes);
+        const totalLengthVarInt = getVarIntBytes(innerPacket.length);
+        const finalPacketBytes = [].concat(totalLengthVarInt, innerPacket);
 
-            const jsonBytes = Array.from(new TextEncoder().encode(JSON.stringify(responseJson)));
-            const packetId = [0x00];
-            const jsonLengthVarInt = getVarIntBytes(jsonBytes.length);
-            const innerPacket = [].concat(packetId, jsonLengthVarInt, jsonBytes);
-            const totalLengthVarInt = getVarIntBytes(innerPacket.length);
-            
-            return new Uint8Array([].concat(totalLengthVarInt, innerPacket));
-        }
-
-        // إرسال الحزمة فوراً وبشكل تلقائي بمجرد فتح الصفحة
-        async function sendPacketAutomatically() {
-            const packet = compileAutoPacket();
-            try {
-                await fetch('http://localhost:8081', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/octet-stream' },
-                    body: packet.buffer
-                });
-                console.log("✅ تم إرسال حزمة الـ Test التلقائية للمترجم!");
-            } catch (error) {
-                console.log("❌ فشل الإرسال تلقائياً، تأكد من تشغيل translator.js وسماح المتصفح بالمحتوى غير الآمن.");
-            }
-        }
-
-        // تشغيل الدالة فوراً عند تحميل الصفحة
-        sendPacketAutomatically();
+        // تحويل المصفوفة إلى نص هكس لسهولة قراءته من السيرفر
+        const hexString = finalPacketBytes.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // مسح المحتوى القديم وكتابة الـ Hex فقط في الصفحة
+        document.body.innerHTML = `<pre id="hex-output">${hexString}</pre>`;
     </script>
 </body>
 </html>
