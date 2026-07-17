@@ -1,41 +1,77 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft Server Dashboard</title>
+    <title>SaaS Minecraft Packet Generator</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 40px 20px; display: flex; justify-content: center; align-items: center; min-height: 80vh; margin: 0; }
-        .panel { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 550px; width: 100%; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; }
-        h1 { color: #38bdf8; font-size: 24px; margin-bottom: 15px; }
-        p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
-        .status-badge { display: inline-block; background: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; margin-bottom: 20px; }
-        .stat-box { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: right; }
-        .stat-title { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-        .stat-value { font-size: 18px; color: #f1f5f9; font-weight: bold; margin-top: 5px; }
-        #packet-hex { display: none; }
+        /* الصفحة بيضاء تماماً ومخفية */
+        body { background-color: #ffffff; margin: 0; padding: 0; }
+        #raw-packets-delivery { display: none; }
     </style>
 </head>
 <body>
 
-<div class="panel">
-    <div class="status-badge">🟢 خادم البيانات نشط ومستعد</div>
-    <h1>لوحة بيانات السيرفر (GitHub Cloud)</h1>
-    <p>تقوم هذه الصفحة بتخزين حزم بروتوكول ماين كرافت لتغذية المترجم المحلي بالجهاز فور طلبها.</p>
-    
-    <div class="stat-box">
-        <div class="stat-title">اللاعبين الافتراضيين بالسيرفر:</div>
-        <div class="stat-value">12 لاعب متصل حالياً</div>
-    </div>
+    <!-- المترجم tra.js سيأخذ هذا السطر ويقوم بتمريره مباشرة عبر الـ TCP دون تعديل -->
+    <div id="raw-packets-delivery"></div>
 
-    <div class="stat-box">
-        <div class="stat-title">الإصدار المبرمج:</div>
-        <div class="stat-value">Minecraft Java Edition 1.8.9</div>
-    </div>
+    <script>
+        // دالة تحويل الأرقام إلى VarInt بايتات (معيار ماين كرافت)
+        function getVarIntBytes(value) {
+            let buffer = [];
+            while (true) {
+                if ((value & ~0x7F) === 0) {
+                    buffer.push(value);
+                    return buffer;
+                }
+                buffer.push((value & 0x7F) | 0x80);
+                value >>>= 7;
+            }
+        }
 
-    <!-- كود الهكس الجديد (الـ JSON الصافي المترجم فقط بدون ترويسات معقدة) -->
-    <div id="packet-hex">7b2276657273696f6e223a7b226e616d65223a22312e382e39222c2270726f746f636f6c223a34377d2c22706c6179657273223a7b226d6178223a3130302c226f6e6c696e65223a31327d2c226465736372697074696f6e223a7b2274657874223a22a761a76c536572766572204f6e6c696e6520a765a76c5b20476974487562205d227d7d</div>
-</div>
+        // دالة لتغليف أي حزمة بالطول الكلي لها قبل الإرسال
+        function makePacket(packetId, payloadArray) {
+            const innerPacket = [packetId].concat(payloadArray);
+            const totalLength = getVarIntBytes(innerPacket.length);
+            return totalLength.concat(innerPacket);
+        }
 
+        // 1. حزمة الـ Join Game الافتراضية
+        const joinGamePayload = [
+            0x00, 0x00, 0x00, 0x01, // Entity ID
+            0x01,                   // Game Mode: Creative
+            0x00,                   // Dimension: Overworld
+            0x00,                   // Difficulty: Peaceful
+            0x64,                   // Max Players: 100
+            0x05, 0x66, 0x6c, 0x61, 0x74 // World Type: "flat"
+        ];
+        const joinGamePacket = makePacket(0x01, joinGamePayload);
+
+        // 2. حزمة الـ Chunk Data وبداخلها بلوكة Dirt واحدة (ID: 3)
+        // بناء تشونك فارغ حجم البيانات فيه 1024 بايت وكلها هواء (0x00)
+        const chunkData = new Array(1024).fill(0x00);
+        chunkData[0] = 0x03; // وضع بلوكة Dirt (ID: 3) في أول إحداثي بالفراغ
+        const chunkPacket = makePacket(0x21, chunkData);
+
+        // 3. حزمة تحديد موقع رسبنة اللاعب فوق البلوكة (Player Position & Look)
+        // سنرسل بايتات ثابتة للإحداثيات X: 0, Y: 64, Z: 0
+        const positionPayload = [
+            0x40, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // X = 64.0 (Double)
+            0x40, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Y = 64.0 (Double)
+            0x40, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Z = 64.0 (Double)
+            0x00, 0x00, 0x00, 0x00,                         // Yaw = 0.0 (Float)
+            0x00, 0x00, 0x00, 0x00,                         // Pitch = 0.0 (Float)
+            0x00                                            // Flags
+        ];
+        const positionPacket = makePacket(0x08, positionPayload);
+
+        // دمج جميع الحزم المصاغة في مصفوفة واحدة كبرى للـ Play State
+        const allPlayPackets = [].concat(joinGamePacket, chunkPacket, positionPacket);
+
+        // تحويل المصفوفة الكاملة لنص Hex
+        const finalHexDelivery = allPlayPackets.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // حقن الهكس النهائي داخل الـ div المخفي ليتسنى لجهازك سحبه
+        document.getElementById('raw-packets-delivery').innerText = finalHexDelivery;
+    </script>
 </body>
 </html>
