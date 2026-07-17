@@ -4,18 +4,15 @@
     <meta charset="UTF-8">
     <title>SaaS Minecraft Packet Generator</title>
     <style>
-        /* الصفحة بيضاء تماماً ومخفية */
         body { background-color: #ffffff; margin: 0; padding: 0; }
         #raw-packets-delivery { display: none; }
     </style>
 </head>
 <body>
 
-    <!-- المترجم tra.js سيأخذ هذا السطر ويقوم بتمريره مباشرة عبر الـ TCP دون تعديل -->
     <div id="raw-packets-delivery"></div>
 
     <script>
-        // دالة تحويل الأرقام إلى VarInt بايتات (معيار ماين كرافت)
         function getVarIntBytes(value) {
             let buffer = [];
             while (true) {
@@ -28,49 +25,41 @@
             }
         }
 
-        // دالة لتغليف أي حزمة بالطول الكلي لها قبل الإرسال
         function makePacket(packetId, payloadArray) {
             const innerPacket = [packetId].concat(payloadArray);
             const totalLength = getVarIntBytes(innerPacket.length);
             return totalLength.concat(innerPacket);
         }
 
-        // 1. حزمة الـ Join Game الافتراضية
+        // 1. حزمة الـ Join Game القياسية لـ 1.8.9 (Protocol 47)
         const joinGamePayload = [
-            0x00, 0x00, 0x00, 0x01, // Entity ID
-            0x01,                   // Game Mode: Creative
-            0x00,                   // Dimension: Overworld
-            0x00,                   // Difficulty: Peaceful
-            0x64,                   // Max Players: 100
-            0x05, 0x66, 0x6c, 0x61, 0x74 // World Type: "flat"
+            0x00, 0x00, 0x00, 0x01, // Entity ID (1)
+            0x01,                   // Game Mode (1 = Creative)
+            0x00,                   // Dimension (0 = Overworld)
+            0x00,                   // Difficulty (0 = Peaceful)
+            0x64,                   // Max Players (100)
+            0x05, 0x66, 0x6c, 0x61, 0x74, // World Type ("flat")
+            0x00                    // Reduced Debug Info (False)
         ];
         const joinGamePacket = makePacket(0x01, joinGamePayload);
 
-        // 2. حزمة الـ Chunk Data وبداخلها بلوكة Dirt واحدة (ID: 3)
-        // بناء تشونك فارغ حجم البيانات فيه 1024 بايت وكلها هواء (0x00)
-        const chunkData = new Array(1024).fill(0x00);
-        chunkData[0] = 0x03; // وضع بلوكة Dirt (ID: 3) في أول إحداثي بالفراغ
-        const chunkPacket = makePacket(0x21, chunkData);
-
-        // 3. حزمة تحديد موقع رسبنة اللاعب فوق البلوكة (Player Position & Look)
-        // سنرسل بايتات ثابتة للإحداثيات X: 0, Y: 64, Z: 0
+        // 2. حزمة الـ Player Position And Look لتثبيت اللاعب وإجباره على التحميل
         const positionPayload = [
-            0x40, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // X = 64.0 (Double)
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // X = 0.0 (Double)
             0x40, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Y = 64.0 (Double)
-            0x40, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Z = 64.0 (Double)
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Z = 0.0 (Double)
             0x00, 0x00, 0x00, 0x00,                         // Yaw = 0.0 (Float)
             0x00, 0x00, 0x00, 0x00,                         // Pitch = 0.0 (Float)
-            0x00                                            // Flags
+            0x00,                                           // Flags (0)
+            0x00                                            // Teleport ID (0 في 1.8)
         ];
         const positionPacket = makePacket(0x08, positionPayload);
 
-        // دمج جميع الحزم المصاغة في مصفوفة واحدة كبرى للـ Play State
-        const allPlayPackets = [].concat(joinGamePacket, chunkPacket, positionPacket);
+        // دمج الحزمتين الأساسيتين لبدء اللعب وتجاوز شاشة الدخول
+        const allPlayPackets = [].concat(joinGamePacket, positionPacket);
 
-        // تحويل المصفوفة الكاملة لنص Hex
+        // تحويل إلى Hex
         const finalHexDelivery = allPlayPackets.map(b => b.toString(16).padStart(2, '0')).join('');
-
-        // حقن الهكس النهائي داخل الـ div المخفي ليتسنى لجهازك سحبه
         document.getElementById('raw-packets-delivery').innerText = finalHexDelivery;
     </script>
 </body>
