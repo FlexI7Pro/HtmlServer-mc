@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>Minecraft Auto Test</title>
+</head>
+<body>
+
+    <script>
+        // دالة تحويل الأرقام لبروتوكول ماين كرافت
+        function getVarIntBytes(value) {
+            let buffer = [];
+            while (true) {
+                if ((value & ~0x7F) === 0) {
+                    buffer.push(value);
+                    return buffer;
+                }
+                buffer.push((value & 0x7F) | 0x80);
+                value >>>= 7;
+            }
+        }
+
+        // صياغة حزمة الاستعلام التلقائية (بيانات افتراضية للتجربة)
+        function compileAutoPacket() {
+            const responseJson = {
+                version: { name: "1.8.9", protocol: 47 },
+                players: { max: 100, online: 12, sample: [] },
+                description: { text: "§a§lتست تلقائي ناجح من GitHub Pages! 🎉" }
+            };
+
+            const jsonBytes = Array.from(new TextEncoder().encode(JSON.stringify(responseJson)));
+            const packetId = [0x00];
+            const jsonLengthVarInt = getVarIntBytes(jsonBytes.length);
+            const innerPacket = [].concat(packetId, jsonLengthVarInt, jsonBytes);
+            const totalLengthVarInt = getVarIntBytes(innerPacket.length);
+            
+            return new Uint8Array([].concat(totalLengthVarInt, innerPacket));
+        }
+
+        // إرسال الحزمة فوراً وبشكل تلقائي بمجرد فتح الصفحة
+        async function sendPacketAutomatically() {
+            const packet = compileAutoPacket();
+            try {
+                await fetch('http://localhost:8081', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: packet.buffer
+                });
+                console.log("✅ تم إرسال حزمة الـ Test التلقائية للمترجم!");
+            } catch (error) {
+                console.log("❌ فشل الإرسال تلقائياً، تأكد من تشغيل translator.js وسماح المتصفح بالمحتوى غير الآمن.");
+            }
+        }
+
+        // تشغيل الدالة فوراً عند تحميل الصفحة
+        sendPacketAutomatically();
+    </script>
+</body>
+</html>
