@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flaxon Studio // Protocol Builder</title>
+<style>
+  :root {
+    --bg-main: #0d1117;
+    --bg-header: #161b22;
+    --bg-panel: #010409;
+    --border: #30363d;
+    --text-main: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --success: #3fb950;
+    --danger: #f85149;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-main);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    background: var(--bg-header);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .brand {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .brand span { color: var(--text-muted); margin: 0 5px; }
+  .btn {
+    background: #238636;
+    color: #fff;
+    border: 1px solid rgba(240,246,252,0.1);
+    padding: 5px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .btn:hover { background: #2ea043; }
+  .workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  .panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-header);
+  }
+  .panel-left { width: 300px; }
+  .panel-center { flex: 1; background: var(--bg-main); }
+  .panel-right { width: 350px; border-right: none; border-left: 1px solid var(--border); }
+  .panel-header {
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-header);
+  }
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .packet-item {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .packet-item:hover { border-color: var(--text-muted); }
+  .packet-id {
+    font-family: monospace;
+    color: var(--accent);
+    background: rgba(88,166,255,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .timeline-drop {
+    min-height: 150px;
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    margin-bottom: 20px;
+    padding: 10px;
+  }
+  .timeline-title {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .doc-block {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .doc-prop {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding: 6px 0;
+  }
+  .doc-prop:last-child { border-bottom: none; }
+  .terminal {
+    height: 200px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    overflow-y: auto;
+    color: var(--success);
+  }
+  input[type="text"], input[type="number"] {
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 4px 8px;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 4px;
+  }
+  #raw-data-init, #raw-data-loop { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">FlaxonStudio<span>/</span>ProtocolBuilder</div>
+  <button class="btn" onclick="compileStudio()">Compile & Publish</button>
+</header>
+
+<div class="workspace">
+  <div class="panel panel-left">
+    <div class="panel-header">Package Library (v1.8.9)</div>
+    <div class="panel-content" id="library"></div>
+  </div>
+
+  <div class="panel panel-center">
+    <div class="panel-header">Sequence Timeline</div>
+    <div class="panel-content">
+      <div class="timeline-title">Initialization Sequence (On Login)</div>
+      <div class="timeline-drop" id="tl-init"></div>
+      
+      <div class="timeline-title">Loop Sequence (1 Tick / 50ms)</div>
+      <div class="timeline-drop" id="tl-loop"></div>
+    </div>
+    <div class="terminal" id="term"></div>
+  </div>
+
+  <div class="panel panel-right">
+    <div class="panel-header">Documentation & Properties</div>
+    <div class="panel-content" id="props">
+      <div class="doc-block" style="color:var(--text-muted)">Select a package to view Java Edition protocol documentation and edit its binary properties.</div>
+    </div>
+  </div>
+</div>
+
+<div id="raw-data-init"></div>
+<div id="raw-data-loop"></div>
+
+<script>
+  function writeVarInt(v) {
+    const o = [];
+    v = v >>> 0;
+    do {
+      let t = v & 0x7f;
+      v >>>= 7;
+      if (v !== 0) t |= 0x80;
+      o.push(t);
+    } while (v !== 0);
+    return new Uint8Array(o);
+  }
+
+  function concatB(a) {
+    let t = 0;
+    for (const b of a) t += b.length;
+    const o = new Uint8Array(t);
+    let f = 0;
+    for (const b of a) { o.set(b, f); f += b.length; }
+    return o;
+  }
+
+  function writeStr(s) {
+    const b = new TextEncoder().encode(s);
+    return concatB([writeVarInt(b.length), b]);
+  }
+
+  function writeI8(n) { return new Uint8Array([n & 0xFF]); }
+  function writeI32(n) { const b = new Uint8Array(4); new DataView(b.buffer).setInt32(0, n, false); return b; }
+  function writeF32(n) { const b = new Uint8Array(4); new DataView(b.buffer).setFloat32(0, n, false); return b; }
+  function writeF64(n) { const b = new Uint8Array(8); new DataView(b.buffer).setFloat64(0, n, false); return b; }
+  function writeU16(n) { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, n, false); return b; }
+
+  function pack(id, d) {
+    const b = concatB([writeVarInt(id), d]);
+    return concatB([writeVarInt(b.length), b]);
+  }
+
+  function hex(b) {
+    let s = '';
+    for (let i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, '0');
+    return s;
+  }
+
+  function chunkB() {
+    const d = new Uint8Array(0);
+    const m = new Uint8Array(2);
+    return concatB([writeI32(0), writeI32(0), writeI8(1), m, writeVarInt(d.length), d]);
+  }
+
+  const LIB = [
+    {
+      id: 0x01, name: "Join Game", target: "tl-init",
+      doc: "Sent after login. Initializes state.",
+      fields: [
+        { key: "eid", type: "i32", val: 1 },
+        { key: "gm", type: "i8", val: 1 },
+        { key: "dim", type: "i8", val: 0 },
+        { key: "diff", type: "i8", val: 0 },
+        { key: "max", type: "i8", val: 1 },
+        { key: "type", type: "str", val: "flat" }
+      ],
+      gen: (f) => pack(0x01, concatB([writeI32(f.eid), writeI8(f.gm), writeI8(f.dim), writeI8(f.diff), writeI8(f.max), writeStr(f.type), writeI8(0)]))
+    },
+    {
+      id: 0x21, name: "Chunk Data (Void)", target: "tl-init",
+      doc: "Sends an empty chunk to optimize resources.",
+      fields: [],
+      gen: () => pack(0x21, chunkB())
+    },
+    {
+      id: 0x08, name: "Player Pos & Look", target: "tl-init",
+      doc: "Teleports player to coordinates.",
+      fields: [
+        { key: "x", type: "f64", val: 8.5 },
+        { key: "y", type: "f64", val: 64.0 },
+        { key: "z", type: "f64", val: 8.5 },
+        { key: "yaw", type: "f32", val: 0 },
+        { key: "pitch", type: "f32", val: 0 }
+      ],
+      gen: (f) => pack(0x08, concatB([writeF64(f.x), writeF64(f.y), writeF64(f.z), writeF32(f.yaw), writeF32(f.pitch), writeI8(0)]))
+    },
+    {
+      id: 0x02, name: "Chat Message", target: "tl-loop",
+      doc: "Broadcasts a chat message.",
+      fields: [
+        { key: "msg", type: "str", val: '{"text":"Studio Loop Active","color":"green"}' },
+        { key: "pos", type: "i8", val: 2 }
+      ],
+      gen: (f) => pack(0x02, concatB([writeStr(f.msg), writeI8(f.pos)]))
+    }
+  ];
+
+  let seqInit = [];
+  let seqLoop = [];
+  let actIdx = -1;
+  let actArr = null;
+
+  function renderLib() {
+    const l = document.getElementById("library");
+    l.innerHTML = "";
+    LIB.forEach((p, i) => {
+      const d = document.createElement("div");
+      d.className = "packet-item";
+      d.innerHTML = `<span>${p.name}</span><span class="packet-id">0x${p.id.toString(16).padStart(2,'0')}</span>`;
+      d.onclick = () => addToTl(i);
+      l.appendChild(d);
+    });
+  }
+
+  function addToTl(idx) {
+    const tmpl = LIB[idx];
+    const inst = JSON.parse(JSON.stringify(tmpl));
+    inst.gen = tmpl.gen;
+    if (inst.target === "tl-init") seqInit.push(inst);
+    else seqLoop.push(inst);
+    renderTl();
+  }
+
+  function renderTl() {
+    const ti = document.getElementById("tl-init");
+    const to = document.getElementById("tl-loop");
+    ti.innerHTML = "";
+    to.innerHTML = "";
+    
+    seqInit.forEach((p, i) => {
+      const d = document.createElement("div");
+      d.className = "packet-item";
+      d.innerHTML = `<span>${p.name}</span><span style="color:var(--danger)" onclick="event.stopPropagation();seqInit.splice(${i},1);renderTl();props.innerHTML=''">X</span>`;
+      d.onclick = () => showProps(seqInit, i);
+      ti.appendChild(d);
+    });
+
+    seqLoop.forEach((p, i) => {
+      const d = document.createElement("div");
+      d.className = "packet-item";
+      d.innerHTML = `<span>${p.name}</span><span style="color:var(--danger)" onclick="event.stopPropagation();seqLoop.splice(${i},1);renderTl();props.innerHTML=''">X</span>`;
+      d.onclick = () => showProps(seqLoop, i);
+      to.appendChild(d);
+    });
+  }
+
+  function showProps(arr, idx) {
+    actArr = arr;
+    actIdx = idx;
+    const p = arr[idx];
+    const c = document.getElementById("props");
+    let h = `<div class="doc-block"><strong>${p.name} (0x${p.id.toString(16).padStart(2,'0')})</strong><br><br>${p.doc}</div>`;
+    h += `<div class="doc-block">`;
+    p.fields.forEach((f, fi) => {
+      h += `<div><label>${f.key} (${f.type})</label><input type="${f.type==='str'?'text':'number'}" value="${f.val}" onchange="updateProp(${fi}, this.value, '${f.type}')"></div><br>`;
+    });
+    h += `</div>`;
+    c.innerHTML = h;
+  }
+
+  function updateProp(fIdx, val, type) {
+    if (type !== 'str') val = Number(val);
+    actArr[actIdx].fields[fIdx].val = val;
+  }
+
+  function log(msg) {
+    const t = document.getElementById("term");
+    t.innerHTML += `> ${msg}<br>`;
+    t.scrollTop = t.scrollHeight;
+  }
+
+  function compileStudio() {
+    log("Compiling timeline buffers...");
+    let bI = new Uint8Array(0);
+    seqInit.forEach(p => {
+      const vals = {};
+      p.fields.forEach(f => vals[f.key] = f.val);
+      bI = concatB([bI, p.gen(vals)]);
+    });
+
+    let bL = new Uint8Array(0);
+    seqLoop.forEach(p => {
+      const vals = {};
+      p.fields.forEach(f => vals[f.key] = f.val);
+      bL = concatB([bL, p.gen(vals)]);
+    });
+
+    const hI = hex(bI);
+    const hL = hex(bL);
+    document.getElementById("raw-data-init").textContent = hI;
+    document.getElementById("raw-data-loop").textContent = hL;
+
+    log(`Init Payload: ${bI.length} bytes compiled.`);
+    log(`Loop Payload: ${bL.length} bytes compiled.`);
+    log("Awaiting tra.js fetch cycle.");
+  }
+
+  renderLib();
+  addToTl(0);
+  addToTl(1);
+  addToTl(2);
+  compileStudio();
+</script>
+</body>
+</html>
